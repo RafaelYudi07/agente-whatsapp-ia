@@ -1,0 +1,513 @@
+{
+  "name": "Agente IA WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp",
+        "options": {}
+      },
+      "id": "a1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f1",
+              "name": "evento",
+              "type": "string",
+              "value": "={{ $json.body.event }}"
+            },
+            {
+              "id": "f2",
+              "name": "instancia",
+              "type": "string",
+              "value": "={{ $json.body.instance }}"
+            },
+            {
+              "id": "f3",
+              "name": "jid",
+              "type": "string",
+              "value": "={{ (($json.body.data?.key?.remoteJid ?? '').endsWith('@lid') && $json.body.data?.key?.remoteJidAlt ? $json.body.data.key.remoteJidAlt : ($json.body.data?.key?.remoteJid ?? '')) }}"
+            },
+            {
+              "id": "f4",
+              "name": "numero",
+              "type": "string",
+              "value": "={{ (($json.body.data?.key?.remoteJid ?? '').endsWith('@lid') && $json.body.data?.key?.remoteJidAlt ? $json.body.data.key.remoteJidAlt : ($json.body.data?.key?.remoteJid ?? '')).endsWith('@lid') ? (($json.body.data?.key?.remoteJid ?? '').endsWith('@lid') && $json.body.data?.key?.remoteJidAlt ? $json.body.data.key.remoteJidAlt : ($json.body.data?.key?.remoteJid ?? '')) : (($json.body.data?.key?.remoteJid ?? '').endsWith('@lid') && $json.body.data?.key?.remoteJidAlt ? $json.body.data.key.remoteJidAlt : ($json.body.data?.key?.remoteJid ?? '')).split('@')[0] }}"
+            },
+            {
+              "id": "f5",
+              "name": "deMim",
+              "type": "boolean",
+              "value": "={{ $json.body.data?.key?.fromMe === true }}"
+            },
+            {
+              "id": "f6",
+              "name": "nome",
+              "type": "string",
+              "value": "={{ $json.body.data?.pushName ?? '' }}"
+            },
+            {
+              "id": "f7",
+              "name": "texto",
+              "type": "string",
+              "value": "={{ $json.body.data?.message?.conversation ?? $json.body.data?.message?.extendedTextMessage?.text ?? '' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a2",
+      "name": "Normalizar",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.evento }}",
+              "rightValue": "messages.upsert",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.deMim }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "c3",
+              "leftValue": "={{ $json.jid }}",
+              "rightValue": "@g.us",
+              "operator": {
+                "type": "string",
+                "operation": "notEndsWith"
+              }
+            },
+            {
+              "id": "c4",
+              "leftValue": "={{ $json.texto }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "c5",
+              "leftValue": "={{ $json.jid }}",
+              "rightValue": "@broadcast",
+              "operator": {
+                "type": "string",
+                "operation": "notEndsWith"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a3",
+      "name": "Mensagem de texto recebida?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Chat de teste').isExecuted ? $('Normalizar chat').item.json.texto : $('Normalizar').item.json.texto }}",
+        "options": {
+          "systemMessage": "={{ $('Config do painel').item.json.prompt }}"
+        }
+      },
+      "id": "a4",
+      "name": "Agente IA",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1120,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.8-flash",
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "a5",
+      "name": "Gemini",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Chat de teste').isExecuted ? $('Chat de teste').item.json.sessionId : $('Normalizar').item.json.numero }}",
+        "contextWindowLength": 10
+      },
+      "id": "a6",
+      "name": "Memória por número",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        1220,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://evolution-api:8080/message/sendText/{{ $('Normalizar').item.json.instancia }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $('Normalizar').item.json.numero, text: $json.output, delay: 1200 }) }}",
+        "options": {}
+      },
+      "id": "a7",
+      "name": "Responder no WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1660,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "public": false,
+        "options": {
+          "responseMode": "lastNode"
+        }
+      },
+      "id": "b1",
+      "name": "Chat de teste",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        -220
+      ],
+      "webhookId": "chat-teste-agente"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "g1",
+              "name": "texto",
+              "type": "string",
+              "value": "={{ $json.chatInput }}"
+            },
+            {
+              "id": "g2",
+              "name": "nome",
+              "type": "string",
+              "value": "Teste (chat do n8n)"
+            },
+            {
+              "id": "g3",
+              "name": "numero",
+              "type": "string",
+              "value": "={{ $json.sessionId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b2",
+      "name": "Normalizar chat",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "d1",
+              "leftValue": "={{ $('Chat de teste').isExecuted }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b3",
+      "name": "Veio do chat de teste?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": "qwen2.5:7b",
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "c1",
+      "name": "Ollama (local)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://painel:5000/api/agente/config",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "numero",
+              "value": "={{ $json.numero }}"
+            },
+            {
+              "name": "nome",
+              "value": "={{ $json.nome }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "p1",
+      "name": "Config do painel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "p2c",
+              "leftValue": "={{ $json.pausado }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "p2",
+      "name": "Bot ativo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        -100
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalizar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar": {
+      "main": [
+        [
+          {
+            "node": "Mensagem de texto recebida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagem de texto recebida?": {
+      "main": [
+        [
+          {
+            "node": "Config do painel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente IA": {
+      "main": [
+        [
+          {
+            "node": "Veio do chat de teste?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memória por número": {
+      "ai_memory": [
+        [
+          {
+            "node": "Agente IA",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat de teste": {
+      "main": [
+        [
+          {
+            "node": "Normalizar chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar chat": {
+      "main": [
+        [
+          {
+            "node": "Config do painel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Veio do chat de teste?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Responder no WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama (local)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente IA",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config do painel": {
+      "main": [
+        [
+          {
+            "node": "Bot ativo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bot ativo?": {
+      "main": [
+        [
+          {
+            "node": "Agente IA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "VYAPBMzBQjfAYuA6"
+}

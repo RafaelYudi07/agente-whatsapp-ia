@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel do Agente</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --surface: #ffffff; --surface-2: #f8f9fb; --border: #e3e6eb;
+    --text: #16181d; --muted: #667085; --accent: #128c5e; --accent-soft: #e5f4ee;
+    --warn: #b54708; --warn-soft: #fef0e6; --danger: #c0362c;
+    --bubble-in: #ffffff; --bubble-bot: #e5f4ee; --bubble-you: #e8efff;
+    --radius: 12px; --shadow: 0 1px 2px rgba(16,24,40,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --surface: #171a20; --surface-2: #1d2128; --border: #2a2f38;
+      --text: #e8eaee; --muted: #949bab; --accent: #3ccf91; --accent-soft: #15322a;
+      --warn: #f5a35c; --warn-soft: #3a2616; --danger: #f07068;
+      --bubble-in: #1f242c; --bubble-bot: #15322a; --bubble-you: #1c2a47;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  button, textarea, input { font: inherit; color: inherit; }
+
+  header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+           padding: 14px 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  header h1 { font-size: 16px; margin: 0; font-weight: 650; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+          font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .pill.ok .dot { background: var(--accent); } .pill.bad .dot { background: var(--danger); }
+  .spacer { flex: 1; }
+  nav { display: flex; gap: 4px; }
+  nav button { background: none; border: 0; padding: 6px 12px; border-radius: 8px; cursor: pointer; color: var(--muted); }
+  nav button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+  .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-weight: 500; }
+  .switch input { display: none; }
+  .track { width: 36px; height: 20px; border-radius: 999px; background: var(--border); position: relative; }
+  .ready .track, .ready .track::after { transition: .15s; }
+  .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+                  border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+  .switch input:checked + .track { background: var(--accent); }
+  .switch input:checked + .track::after { left: 18px; }
+
+  main { padding: 16px 20px 24px; max-width: 1280px; margin: 0 auto; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+          padding: 12px 14px; box-shadow: var(--shadow); }
+  .stat b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: 12px; }
+
+  .banner { display: none; margin-bottom: 12px; padding: 10px 14px; border-radius: 10px;
+            background: var(--warn-soft); color: var(--warn); font-weight: 500; }
+  .banner.show { display: block; }
+
+  body { overflow-x: hidden; }
+  .grid > *, .stats > * { min-width: 0; }
+  .grid { display: grid; grid-template-columns: 340px 1fr; gap: 16px; height: calc(100vh - 230px); min-height: 420px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+          box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+  .list { overflow-y: auto; flex: 1; }
+  .item { display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--border);
+          padding: 12px 14px; cursor: pointer; }
+  .item:hover { background: var(--surface-2); }
+  .item.on { background: var(--accent-soft); }
+  .item .top { display: flex; justify-content: space-between; gap: 8px; }
+  .item .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .time { color: var(--muted); font-size: 12px; flex-shrink: 0; }
+  .item .preview { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+  .tag { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); margin-left: 6px; font-weight: 500; }
+
+  .thread-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .thread-head .who { flex: 1; min-width: 0; }
+  .thread-head .who b { display: block; }
+  .thread-head .who span { color: var(--muted); font-size: 12px; }
+  .msgs { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; background: var(--surface-2); }
+  .msg { max-width: 72%; padding: 8px 12px; border-radius: 12px; white-space: pre-wrap; word-wrap: break-word;
+         border: 1px solid var(--border); }
+  .msg.contato { align-self: flex-start; background: var(--bubble-in); border-top-left-radius: 4px; }
+  .msg.bot { align-self: flex-end; background: var(--bubble-bot); border-top-right-radius: 4px; }
+  .msg.voce { align-self: flex-end; background: var(--bubble-you); border-top-right-radius: 4px; }
+  .msg small { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; }
+  .compose { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--border); }
+  .compose textarea { flex: 1; resize: none; height: 42px; padding: 10px 12px; border-radius: 10px;
+                      border: 1px solid var(--border); background: var(--surface-2); }
+  .btn { border: 0; border-radius: 10px; padding: 0 16px; background: var(--accent); color: #fff; font-weight: 600; cursor: pointer; min-height: 38px; }
+  .btn.ghost { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .empty { margin: auto; color: var(--muted); text-align: center; padding: 24px; }
+  .hint { color: var(--muted); font-size: 12px; padding: 0 12px 10px; }
+
+  #tab-prompt .card { padding: 16px; gap: 12px; }
+  #prompt { width: 100%; min-height: 420px; padding: 12px; border-radius: 10px; border: 1px solid var(--border);
+            background: var(--surface-2); font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg);
+           padding: 8px 16px; border-radius: 8px; opacity: 0; transition: .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .back { display: none; }
+
+  @media (max-width: 820px) {
+    header, main { padding-left: 16px; padding-right: 16px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .grid { grid-template-columns: 1fr; height: auto; }
+    .grid .card { height: calc(100vh - 300px); }
+    .grid.open .card.lista { display: none; } .grid:not(.open) .card.thread { display: none; }
+    .back { display: inline-block; }
+    header { gap: 10px; } .spacer { display: none; }
+    .thread-head { flex-wrap: wrap; } .thread-head .switch span:last-child { font-size: 13px; }
+    .msg { max-width: 88%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Painel do Agente</h1>
+  <span class="pill" id="wa"><span class="dot"></span><span>WhatsApp…</span></span>
+  <nav>
+    <button class="on" data-tab="conversas">Conversas</button>
+    <button data-tab="prompt">Prompt do agente</button>
+  </nav>
+  <span class="spacer"></span>
+  <label class="switch" title="Liga/desliga as respostas automáticas para todos">
+    <input type="checkbox" id="bot-global"><span class="track"></span><span id="bot-global-label">Bot</span>
+  </label>
+</header>
+
+<main>
+  <div class="banner" id="banner-pausa">⏸ O bot está pausado para todos os contatos. Ninguém recebe resposta automática.</div>
+
+  <section id="tab-conversas">
+    <div class="stats">
+      <div class="stat"><b id="s-contatos">–</b><span>contatos</span></div>
+      <div class="stat"><b id="s-recebidas">–</b><span>mensagens recebidas hoje</span></div>
+      <div class="stat"><b id="s-bot">–</b><span>respostas do bot hoje</span></div>
+      <div class="stat"><b id="s-pausados">–</b><span>conversas assumidas por você</span></div>
+    </div>
+    <div class="grid" id="grid">
+      <div class="card lista"><div class="list" id="lista"><div class="empty">Carregando…</div></div></div>
+      <div class="card thread">
+        <div class="thread-head" id="thread-head" hidden>
+          <button class="btn ghost back" id="voltar">←</button>
+          <div class="who"><b id="t-nome"></b><span id="t-tel"></span></div>
+          <label class="switch" title="Bot responde este contato">
+            <input type="checkbox" id="bot-contato"><span class="track"></span><span>Bot nesta conversa</span>
+          </label>
+        </div>
+        <div class="msgs" id="msgs"><div class="empty">Escolha uma conversa à esquerda.</div></div>
+        <div id="compose-wrap" hidden>
+          <form class="compose" id="compose">
+            <textarea id="texto" placeholder="Responder como você…"></textarea>
+            <button class="btn" id="enviar">Enviar</button>
+          </form>
+          <div class="hint">Ao enviar por aqui, o bot é pausado nesta conversa para não responder por cima de você.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-prompt" hidden>
+    <div class="card">
+      <div>
+        <b>Instruções do agente</b>
+        <div style="color:var(--muted);font-size:13px;margin-top:4px">
+          Vale a partir da próxima mensagem. Use <code>{nome}</code> onde quiser o nome do contato no WhatsApp.
+        </div>
+      </div>
+      <textarea id="prompt" spellcheck="false"></textarea>
+      <div class="row">
+        <button class="btn" id="salvar-prompt">Salvar</button>
+        <button class="btn ghost" id="restaurar-prompt">Restaurar padrão</button>
+      </div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let atual = null, ultimaAssinatura = "";
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function hora(ts) {
+  if (!ts) return "";
+  const d = new Date(ts * 1000), hoje = new Date();
+  const mesmoDia = d.toDateString() === hoje.toDateString();
+  return mesmoDia ? d.toLocaleTimeString("pt-BR", {hour: "2-digit", minute: "2-digit"})
+                  : d.toLocaleDateString("pt-BR", {day: "2-digit", month: "2-digit"}) + " " +
+                    d.toLocaleTimeString("pt-BR", {hour: "2-digit", minute: "2-digit"});
+}
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2200); }
+async function api(path, opts = {}) {
+  const r = await fetch(path, {headers: {"Content-Type": "application/json"}, ...opts,
+                               body: opts.body ? JSON.stringify(opts.body) : undefined});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.erro || r.statusText);
+  return j;
+}
+
+async function carregarStatus() {
+  try {
+    const s = await api("/api/status");
+    const wa = $("#wa"), ok = s.whatsapp === "open";
+    wa.className = "pill " + (ok ? "ok" : "bad");
+    wa.lastElementChild.textContent = ok ? "WhatsApp conectado" : "WhatsApp: " + s.whatsapp;
+    $("#bot-global").checked = s.bot_ativo;
+    $("#bot-global-label").textContent = s.bot_ativo ? "Bot ligado" : "Bot pausado";
+    $("#banner-pausa").classList.toggle("show", !s.bot_ativo);
+  } catch { $("#wa").className = "pill bad"; $("#wa").lastElementChild.textContent = "Painel sem conexão"; }
+}
+
+async function carregarConversas() {
+  let d;
+  try { d = await api("/api/conversas"); }
+  catch (e) { $("#lista").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  $("#s-contatos").textContent = d.stats.contatos;
+  $("#s-recebidas").textContent = d.stats.recebidas_hoje;
+  $("#s-bot").textContent = d.stats.bot_hoje;
+  $("#s-pausados").textContent = d.stats.pausados;
+  if (!d.conversas.length) { $("#lista").innerHTML = '<div class="empty">Nenhuma conversa ainda.<br>Mande uma mensagem para o número conectado.</div>'; return; }
+  $("#lista").innerHTML = d.conversas.map(c => {
+    const prefixo = c.ultima_autor === "bot" ? "🤖 " : c.ultima_autor === "voce" ? "Você: " : "";
+    return `<button class="item ${c.numero === atual ? "on" : ""}" data-numero="${esc(c.numero)}">
+      <div class="top"><span class="name">${esc(c.nome || c.telefone)}${c.pausado ? '<span class="tag">você assumiu</span>' : ""}</span>
+      <span class="time">${hora(c.ultima_ts)}</span></div>
+      <div class="preview">${esc(prefixo + c.ultima_texto)}</div></button>`;
+  }).join("");
+}
+
+async function abrirConversa(numero, rolar = true) {
+  atual = numero;
+  $("#grid").classList.add("open");
+  document.querySelectorAll(".item").forEach(i => i.classList.toggle("on", i.dataset.numero === numero));
+  const d = await api("/api/conversas/" + encodeURIComponent(numero));
+  const nome = [...d.mensagens].reverse().find(m => m.nome)?.nome;
+  $("#thread-head").hidden = false; $("#compose-wrap").hidden = false;
+  $("#t-nome").textContent = nome || d.telefone;
+  $("#t-tel").textContent = nome ? d.telefone : "";
+  $("#bot-contato").checked = !d.pausado;
+  const assinatura = numero + ":" + d.mensagens.length + ":" + d.pausado;
+  if (assinatura === ultimaAssinatura && !rolar) return;
+  ultimaAssinatura = assinatura;
+  const rotulo = {contato: "", bot: "🤖 bot · ", voce: "você · "};
+  const box = $("#msgs"), noFim = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+  box.innerHTML = d.mensagens.map(m =>
+    `<div class="msg ${m.autor}">${esc(m.texto)}<small>${rotulo[m.autor]}${hora(m.ts)}</small></div>`).join("")
+    || '<div class="empty">Sem mensagens.</div>';
+  if (rolar || noFim) box.scrollTop = box.scrollHeight;
+}
+
+$("#lista").addEventListener("click", e => { const b = e.target.closest(".item"); if (b) abrirConversa(b.dataset.numero); });
+$("#voltar").addEventListener("click", () => $("#grid").classList.remove("open"));
+
+$("#bot-global").addEventListener("change", async e => {
+  await api("/api/config", {method: "POST", body: {bot_ativo: e.target.checked}});
+  toast(e.target.checked ? "Bot ligado" : "Bot pausado para todos"); carregarStatus();
+});
+$("#bot-contato").addEventListener("change", async e => {
+  await api(`/api/conversas/${encodeURIComponent(atual)}/pausa`, {method: "POST", body: {pausado: !e.target.checked}});
+  toast(e.target.checked ? "Bot voltou a responder este contato" : "Bot pausado nesta conversa");
+  carregarConversas();
+});
+
+$("#compose").addEventListener("submit", async e => {
+  e.preventDefault();
+  const texto = $("#texto").value.trim(); if (!texto || !atual) return;
+  $("#enviar").disabled = true;
+  try {
+    await api(`/api/conversas/${encodeURIComponent(atual)}/enviar`, {method: "POST", body: {texto}});
+    $("#texto").value = ""; toast("Enviado · bot pausado nesta conversa");
+    setTimeout(() => { abrirConversa(atual); carregarConversas(); }, 800);
+  } catch (err) { toast(err.message); }
+  finally { $("#enviar").disabled = false; }
+});
+$("#texto").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#compose").requestSubmit(); } });
+
+document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", async () => {
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
+  $("#tab-conversas").hidden = b.dataset.tab !== "conversas";
+  $("#tab-prompt").hidden = b.dataset.tab !== "prompt";
+  if (b.dataset.tab === "prompt") $("#prompt").value = (await api("/api/config")).prompt;
+}));
+$("#salvar-prompt").addEventListener("click", async () => {
+  await api("/api/config", {method: "POST", body: {prompt: $("#prompt").value}}); toast("Prompt salvo");
+});
+$("#restaurar-prompt").addEventListener("click", async () => {
+  if (!confirm("Voltar ao prompt padrão? O texto atual será perdido.")) return;
+  $("#prompt").value = (await api("/api/config/prompt-padrao", {method: "POST"})).prompt; toast("Prompt padrão restaurado");
+});
+
+carregarStatus().then(() => setTimeout(() => document.body.classList.add("ready"), 300));
+carregarConversas().then(() => {
+  const h = location.hash;
+  if (h.startsWith("#c=")) abrirConversa(decodeURIComponent(h.slice(3)));
+  if (h === "#prompt") document.querySelector('nav button[data-tab="prompt"]').click();
+});
+setInterval(() => { carregarStatus(); carregarConversas(); if (atual && !$("#tab-conversas").hidden) abrirConversa(atual, false); }, 5000);
+</script>
+</body>
+</html>
